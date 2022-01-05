@@ -22,20 +22,25 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
+from tqdm import tqdm
 
-w = 400
-h = 300
 
-def normalize(x):
-    x /= np.linalg.norm(x)
-    return x
+def normalize(vector):
+    return vector / np.linalg.norm(vector)
+
+
+def reflect(vector, normal):
+    return vector - 2 * np.dot(vector, normal) * normal
+
 
 def intersect_plane(O, D, P, N):
-    # Return the distance from O to the intersection of the ray (O, D) with the 
+    # Return the distance from O to the intersection of the ray (O, D) with the
     # plane (P, N), or +inf if there is no intersection.
     # O and P are 3D points, D and N (normal) are normalized vectors.
+
     denom = np.dot(D, N)
     if np.abs(denom) < 1e-6:
         return np.inf
@@ -44,10 +49,12 @@ def intersect_plane(O, D, P, N):
         return np.inf
     return d
 
+
 def intersect_sphere(O, D, S, R):
-    # Return the distance from O to the intersection of the ray (O, D) with the 
+    # Return the distance from O to the intersection of the ray (O, D) with the
     # sphere (S, R), or +inf if there is no intersection.
     # O and S are 3D points, D (direction) is a normalized vector, R is a scalar.
+
     a = np.dot(D, D)
     OS = O - S
     b = 2 * np.dot(D, OS)
@@ -61,7 +68,9 @@ def intersect_sphere(O, D, S, R):
         t0, t1 = min(t0, t1), max(t0, t1)
         if t1 >= 0:
             return t1 if t0 < 0 else t0
+
     return np.inf
+
 
 def intersect(O, D, obj):
     if obj['type'] == 'plane':
@@ -69,19 +78,21 @@ def intersect(O, D, obj):
     elif obj['type'] == 'sphere':
         return intersect_sphere(O, D, obj['position'], obj['radius'])
 
+
 def get_normal(obj, M):
     # Find normal.
     if obj['type'] == 'sphere':
-        N = normalize(M - obj['position'])
+        return normalize(M - obj['position'])
     elif obj['type'] == 'plane':
-        N = obj['normal']
-    return N
-    
+        return obj['normal']
+
+
 def get_color(obj, M):
     color = obj['color']
     if not hasattr(color, '__len__'):
         color = color(M)
     return color
+
 
 def trace_ray(rayO, rayD):
     # Find first point of intersection with the scene.
@@ -90,93 +101,130 @@ def trace_ray(rayO, rayD):
         t_obj = intersect(rayO, rayD, obj)
         if t_obj < t:
             t, obj_idx = t_obj, i
+
     # Return None if the ray does not intersect any object.
     if t == np.inf:
         return
+
     # Find the object.
     obj = scene[obj_idx]
+
     # Find the point of intersection on the object.
     M = rayO + rayD * t
+
     # Find properties of the object.
     N = get_normal(obj, M)
     color = get_color(obj, M)
-    toL = normalize(L - M)
     toO = normalize(O - M)
-    # Shadow: find if the point is shadowed or not.
-    l = [intersect(M + N * .0001, toL, obj_sh) 
-            for k, obj_sh in enumerate(scene) if k != obj_idx]
-    if l and min(l) < np.inf:
-        return
+
     # Start computing the color.
     col_ray = ambient
-    # Lambert shading (diffuse).
-    col_ray += obj.get('diffuse_c', diffuse_c) * max(np.dot(N, toL), 0) * color
-    # Blinn-Phong shading (specular).
-    col_ray += obj.get('specular_c', specular_c) * max(np.dot(N, normalize(toL + toO)), 0) ** specular_k * color_light
+    has_light = False
+    for L, color_light in lights:
+        toL = normalize(L - M)
+
+        # Shadow: find if the point is shadowed or not.
+        l = [intersect(M + N * 0.0001, toL, obj_sh)
+             for k, obj_sh in enumerate(scene) if k != obj_idx]
+        if not (l and min(l) < np.inf):
+            has_light = True
+
+        # Lambert shading (diffuse).
+        col_ray += obj.get('diffuse_c', diffuse_c) * \
+            max(np.dot(N, toL), 0) * color
+
+        # Blinn-Phong shading (specular).
+        col_ray += obj.get('specular_c', specular_c) * max(np.dot(N,
+                                                                  normalize(toL + toO)), 0) ** specular_k * color_light
+    if not has_light:
+        return
+
     return obj, M, N, col_ray
 
-def add_sphere(position, radius, color):
-    return dict(type='sphere', position=np.array(position), 
-        radius=np.array(radius), color=np.array(color), reflection=.5)
-    
-def add_plane(position, normal):
-    return dict(type='plane', position=np.array(position), 
-        normal=np.array(normal),
-        color=lambda M: (color_plane0 
-            if (int(M[0] * 2) % 2) == (int(M[2] * 2) % 2) else color_plane1),
-        diffuse_c=.75, specular_c=.5, reflection=.25)
-    
-# List of objects.
-color_plane0 = 1. * np.ones(3)
-color_plane1 = 0. * np.ones(3)
-scene = [add_sphere([.75, .1, 1.], .6, [0., 0., 1.]),
-         add_sphere([-.75, .1, 2.25], .6, [.5, .223, .5]),
-         add_sphere([-2.75, .1, 3.5], .6, [1., .572, .184]),
-         add_plane([0., -.5, 0.], [0., 1., 0.]),
-    ]
 
-# Light position and color.
-L = np.array([5., 5., -10.])
-color_light = np.ones(3)
+def add_plane(position, normal):
+    return {
+        'type': 'plane',
+        'position': np.array(position),
+        'normal': np.array(normal),
+        'color': lambda M: (np.ones(3) if (int(M[0] * 2) % 2) == (int(M[2] * 2) % 2) else np.zeros(3)),
+        'diffuse_c': 0.75,
+        'specular_c': 0.5,
+        'reflection': 0.25
+    }
+
+
+def add_sphere(position, radius, color):
+    return {
+        'type': 'sphere',
+        'position': np.array(position),
+        'radius': np.array(radius),
+        'color': np.array(color),
+        'reflection': 0.5
+    }
+
+
+# Image dimensions
+width = 400
+height = 300
 
 # Default light and material parameters.
-ambient = .05
-diffuse_c = 1.
-specular_c = 1.
+ambient = 0.05
+diffuse_c = 1.0
+specular_c = 1.0
 specular_k = 50
 
-depth_max = 5  # Maximum number of light reflections.
-col = np.zeros(3)  # Current color.
-O = np.array([0., 0.35, -1.])  # Camera.
-Q = np.array([0., 0., 0.])  # Camera pointing to.
-img = np.zeros((h, w, 3))
+# Maximum number of light reflections.
+depth_max = 5
 
-r = float(w) / h
-# Screen coordinates: x0, y0, x1, y1.
-S = (-1., -1. / r + .25, 1., 1. / r + .25)
+# List of objects.
+scene = [
+    add_plane([0.0, -0.5, 0.0], [0.0, 1.0, 0.0]),
+    add_sphere([0.75, 0.1, 1.0], 0.6, [0.0, 0.0, 1.0]),  # Blue
+    add_sphere([-0.75, 0.1, 2.25], 0.6, [0.5, 0.223, 0.5]),  # Purple
+    add_sphere([-2.75, 0.1, 3.5], 0.6, [1.0, 0.572, 0.184]),  # Orange
+]
+
+# List of light positions and colors.
+lights = [
+    (np.array([5.0, 5.0, -10.0]), np.array([1.0, 1.0, 1.0])),  # White
+    (np.array([-10.0, 5.0, 5.0]), np.array([1.0, 0.0, 1.0])),  # Red
+]
+
+# Camera view.
+O = np.array([0.0, 0.35, -1.0])  # Camera.
+Q = np.array([0.0, 0.0, 0.0])  # Camera pointing to.
+
+# Screen coordinates (left, top, right, bottom): x0, y0, x1, y1.
+ratio = float(width) / height
+S = (-1.0, -1.0 / ratio + 0.25, 1.0, 1.0 / ratio + 0.25)
 
 # Loop through all pixels.
-for i, x in enumerate(np.linspace(S[0], S[2], w)):
-    if i % 10 == 0:
-        print i / float(w) * 100, "%"
-    for j, y in enumerate(np.linspace(S[1], S[3], h)):
-        col[:] = 0
-        Q[:2] = (x, y)
-        D = normalize(Q - O)
-        depth = 0
-        rayO, rayD = O, D
-        reflection = 1.
-        # Loop through initial and secondary rays.
-        while depth < depth_max:
-            traced = trace_ray(rayO, rayD)
-            if not traced:
-                break
-            obj, M, N, col_ray = traced
-            # Reflection: create a new ray.
-            rayO, rayD = M + N * .0001, normalize(rayD - 2 * np.dot(rayD, N) * N)
-            depth += 1
-            col += reflection * col_ray
-            reflection *= obj.get('reflection', 1.)
-        img[h - j - 1, i, :] = np.clip(col, 0, 1)
+image = np.zeros((height, width, 3))
+with tqdm(total=width * height) as progress:
+    for i, x in enumerate(np.linspace(S[0], S[2], width)):
+        for j, y in enumerate(np.linspace(S[1], S[3], height)):
+            col = np.zeros(3)
+            reflection = 1.0
 
-plt.imsave('fig.png', img)
+            Q = np.array([x, y, 0.0])
+            D = normalize(Q - O)
+            rayO, rayD = O, D
+
+            # Loop through initial and secondary rays.
+            for _ in range(depth_max):
+                traced = trace_ray(rayO, rayD)
+                if not traced:
+                    break
+                obj, M, N, col_ray = traced
+
+                # Reflection: create a new ray.
+                rayO, rayD = M + N * 0.0001, normalize(reflect(rayD, N))
+
+                col += reflection * col_ray
+                reflection *= obj.get('reflection', 1.0)
+
+            image[height - 1 - j, i, :] = np.clip(col, 0, 1)
+            progress.update()
+
+plt.imsave('images/scene.png', image)
