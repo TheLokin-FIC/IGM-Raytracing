@@ -140,11 +140,12 @@ def add_plane(position, normal):
 # List of objects.
 color_plane0 = 1. * np.ones(3)
 color_plane1 = 0. * np.ones(3)
-scene = [add_sphere([.75, .1, 1.], .6, [0., 0., 1.]),
-         add_sphere([-.75, .1, 2.25], .6, [.5, .223, .5]),
-         add_sphere([-2.75, .1, 3.5], .6, [1., .572, .184]),
-         add_plane([0., -.5, 0.], [0., 1., 0.]),
-         ]
+scene = [
+            add_sphere([.75, .1, 1.], .6, [0., 0., 1.]),
+            add_sphere([-.75, .1, 2.25], .6, [.5, .223, .5]),
+            add_sphere([-2.75, .1, 3.5], .6, [1., .572, .184]),
+            add_plane([0., -.5, 0.], [0., 1., 0.])
+        ]
 
 # Light position and color.
 L = np.array([5., 5., -10.])
@@ -170,6 +171,7 @@ S = (-1., -1. / r + .25, 1., 1. / r + .25)
 for i, x in enumerate(np.linspace(S[0], S[2], w)):
     if i % 10 == 0:
         print(round(i / float(w) * 100, 1), "%")
+
     for j, y in enumerate(np.linspace(S[1], S[3], h)):
         col[:] = 0
         Q[:2] = (x, y)
