@@ -38,8 +38,6 @@ height = 300
 
 # Default light and material parameters.
 ambient = 0.05
-diffuse_c = 1.0
-specular_c = 1.0
 specular_k = 50
 
 # Maximum number of light reflections.
