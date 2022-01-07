@@ -72,11 +72,57 @@ def intersect_sphere(O, D, S, R):
     return np.inf
 
 
+def intersect_triangle(O, R, v0, v1, v2):
+    # Compute plane's normal
+    v0v1 = v1 - v0
+    v0v2 = v2 - v0
+    N = normalize(np.cross(v0v1, v0v2))
+    D = np.dot(N, v0)
+
+    # Dot product of the triangle's normal and the ray's direction.
+    product = np.dot(N, R)
+
+    # The dot product of two perpendicular vectors is 0,
+    # so if the ray and the plane are parallel they wont intersect.
+    if product == 0:
+        return np.inf
+
+    # Distance from the ray origin O to P.
+    t = - (np.dot(N, O) + D) / product
+
+    # Check if the triangle is behind the ray.
+    if t < 0:
+        return np.inf
+
+    # Compute intersection point with ray parametric equation.
+    P = O + t * R
+
+    edge0 = v1 - v0
+    edge1 = v2 - v1
+    edge2 = v0 - v2
+
+    vp0 = P - v0
+    vp1 = P - v1
+    vp2 = P - v2
+
+    C0 = np.cross(edge0, vp0)
+    C1 = np.cross(edge1, vp1)
+    C2 = np.cross(edge2, vp2)
+
+    # Check if P is inside the triangle
+    if np.dot(N, C0) < 0 or np.dot(N, C1) < 0 or np.dot(N, C2) < 0:
+        return np.inf
+
+    return t
+
+
 def intersect(O, D, obj):
     if obj['type'] == 'plane':
         return intersect_plane(O, D, obj['position'], obj['normal'])
     elif obj['type'] == 'sphere':
         return intersect_sphere(O, D, obj['position'], obj['radius'])
+    elif obj['type'] == 'triangle':
+        return intersect_triangle(O, D, obj['v0'], obj['v1'], obj['v2'])
 
 
 def get_normal(obj, M):
@@ -85,6 +131,11 @@ def get_normal(obj, M):
         return normalize(M - obj['position'])
     elif obj['type'] == 'plane':
         return obj['normal']
+    elif obj['type'] == 'triangle':
+        v0v1 = obj['v1'] - obj['v0']
+        v0v2 = obj['v2'] - obj['v0']
+
+        return normalize(np.cross(v0v1, v0v2))
 
 
 def get_color(obj, M):
@@ -164,6 +215,17 @@ def add_sphere(position, radius, color):
     }
 
 
+def add_triangle(position0, position1, position2, color):
+    # Define the 3 vertices of the triangle in counter-clockwise order
+    return {
+        'type': 'triangle',
+        'v0': np.array(position0),
+        'v1': np.array(position1),
+        'v2': np.array(position2),
+        'color': np.array(color)
+    }
+
+
 # Image dimensions
 width = 400
 height = 300
@@ -183,6 +245,10 @@ scene = [
     add_sphere([0.75, 0.1, 1.0], 0.6, [0.0, 0.0, 1.0]),  # Blue
     add_sphere([-0.75, 0.1, 2.25], 0.6, [0.5, 0.223, 0.5]),  # Purple
     add_sphere([-2.75, 0.1, 3.5], 0.6, [1.0, 0.572, 0.184]),  # Orange
+    add_triangle([-0.5, -0.5, -0.5], [-1.0, -0.5, -0.5], [-1.0, 0.0, -0.5],
+                 [0.0, 1.0, 0.0]),
+    add_triangle([0.5, -0.5, 0.5], [0.5, 0.0, 1.0], [0.5, -0.5, 1.0],
+                 [1.0, 0.0, 0.0]),
 ]
 
 # List of light positions and colors.
@@ -196,7 +262,7 @@ O = np.array([0.0, 0.35, -1.0])  # Camera.
 Q = np.array([0.0, 0.0, 0.0])  # Camera pointing to.
 
 # Screen coordinates (left, top, right, bottom): x0, y0, x1, y1.
-ratio = float(width) / height
+ratio = width / height
 S = (-1.0, -1.0 / ratio + 0.25, 1.0, 1.0 / ratio + 0.25)
 
 # Loop through all pixels.
