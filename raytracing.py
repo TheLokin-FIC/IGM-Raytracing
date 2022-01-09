@@ -30,6 +30,7 @@ from tqdm import tqdm
 from primitives.plane import Plane
 from primitives.sphere import Sphere
 from primitives.triangle import Triangle
+from primitives.triangle_strip import TriangleStip
 from primitives.vector import normalize
 
 # Image dimensions
@@ -53,6 +54,15 @@ scene = [
              [0.0, 1.0, 0.0]),
     Triangle([0.5, -0.5, 0.5], [0.5, 0.0, 1.0], [0.5, -0.5, 1.0],
              [1.0, 0.0, 0.0]),
+    TriangleStip([
+        [-0.76, 3.34, -5.0],
+        [1.4, 2.9, -5.0],
+        [-1.84, 2.26, -5.0],
+        [2.0, 1.5, -5.0],
+        [-1.84, 0.74, -5.0],
+        [1.40, 0.1, -5.0],
+        [-0.76, -0.34, -5.0],
+    ], [0.0, 1.0, 1.0]),
 ]
 
 # List of light positions and colors.
