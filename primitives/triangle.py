@@ -4,7 +4,7 @@ from primitives.vector import normalize
 
 
 class Triangle():
-    # Define the 3 vertices of the triangle in counter-clockwise order
+    # Define the 3 vertices of the triangle in counter-clockwise order.
     def __init__(self, v0, v1, v2, color):
         self.v0 = np.array(v0)
         self.v1 = np.array(v1)
@@ -40,7 +40,7 @@ class Triangle():
         C1 = np.cross(self.edge1, P - self.v1)
         C2 = np.cross(self.edge2, P - self.v2)
 
-        # Check if P is inside the triangle
+        # Check if P is inside the triangle.
         if np.dot(self.normal, C0) < 0 or np.dot(self.normal, C1) < 0 or np.dot(self.normal, C2) < 0:
             return np.inf
 
