@@ -3,7 +3,7 @@ import numpy as np
 from primitives.triangle import Triangle
 
 
-class TriangleStip():
+class TriangleStrip():
     def __init__(self, vectors, color):
         # Draws a series of triangles using vertices v0, v1, v2, then
         # v2, v1, v3, then v2, v3, v4, and so on.
